@@ -110,6 +110,7 @@ module metric_thread (diameter=8, pitch=1, length=1, internal=false, n_starts=1,
    h_fac2 = (square || rectangle) ? 0.95 : 5.3/8;
 
    tapered_diameter = diameter - length*taper;
+   function diameter_at(height) = diameter - height*taper;
 
    difference () {
       union () {
@@ -143,25 +144,16 @@ module metric_thread (diameter=8, pitch=1, length=1, internal=false, n_starts=1,
          }
       }
 
+      leadin_h = h*h_fac1*leadfac;
       // chamfer z=0 end if leadin is 2 or 3
       if (leadin == 2 || leadin == 3) {
-         difference () {
-            cylinder (r=diameter/2 + 1, h=h*h_fac1*leadfac, $fn=n_segments);
-
-            cylinder (r2=diameter/2, r1=diameter/2 - h*h_fac1*leadfac, h=h*h_fac1*leadfac,
-                      $fn=n_segments);
-         }
+         cylinder_chamfer(diameter+4, leadin_h+2, $fn=n_segments);
       }
 
       // chamfer z-max end if leadin is 1 or 2.
       if (leadin == 1 || leadin == 2) {
-         translate ([0, 0, length + 0.05 - h*h_fac1*leadfac]) {
-            difference () {
-               cylinder (r=diameter/2 + 1, h=h*h_fac1*leadfac, $fn=n_segments);
-               cylinder (r1=tapered_diameter/2, r2=tapered_diameter/2 - h*h_fac1*leadfac, h=h*h_fac1*leadfac,
-                         $fn=n_segments);
-            }
-         }
+         translate ([0, 0, length]) rotate([0,180,0])
+           cylinder_chamfer(tapered_diameter+4, leadin_h+2, $fn=n_segments);
       }
    }
 }
@@ -371,4 +363,45 @@ module thread_polyhedron (radius, pitch, internal, n_starts, thread_size,
    }
 }
 
+
+module cylinder_chamfer(d, h, angle=45, $fn=8) difference() {
+  translate([0,0,-epsilon])
+    cylinder(r=d/2+1, h=h+epsilon, $fn=$fn);
+  translate([0,0,h+epsilon]) rotate([0,180,0])
+    cylinder (r2=0, r1=d/2+epsilon*tan(angle), h=(d/2+epsilon)*tan(angle), $fn=$fn);
+}
+
+translate([15,0,0]) cylinder_chamfer(13,8,angle=30, $fn=24);
+
+
+inner_d=5.4;
+outer_d0=9.7;
+outer_d1=13;
+length=11.75;
+center_l=2;
+cutouts=3;
+cutout_w=.8;
+angle=45;
+
+epsilon=0.01;
+
+module collet() difference() {
+  metric_thread (diameter=outer_d1, length=length, pitch=4, angle=angle, leadin=2, leadfac=1.2,
+    taper=(outer_d1-outer_d0)/length);
+  
+  translate([0,0,-epsilon])
+    cylinder(r=inner_d/2,h=length+epsilon*2, $fn=24);
+  
+  if (cutouts>0)
+    for (r=[0:360/cutouts:360])
+      rotate([0,0,r])
+        translate([-cutout_w/2,0,-epsilon])
+          cube([cutout_w,outer_d1/2+1,length+epsilon*2]);
+}
+
+module double_collet() {
+  collet();
+}
+
+collet();
 
