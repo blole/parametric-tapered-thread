@@ -1,72 +1,176 @@
+//
+//   forked from
 // ISO screw thread modules by RevK @TheRealRevK
-// https://en.wikipedia.org/wiki/ISO_metric_screw_thread
-// Usable as a library - provides standard nut and both as well as arbitrary thread sections
+// https://www.thingiverse.com/thing:2158656
 
-/* [ Global ] */
+/* [component type] */
 
-// Length of bolt
-l=50;
+type = "double collet";//[single collet,double collet]
+include_collet = true;
+include_nuts = true;
+preview = true;
 
-// Size
-m=20; // [1.4,1.6,2,2.5,3,4,5,6,7,8,10,12,14,16,18,20,22,24,27,30,33,36]
+/* [nut options] */
+//Distance between flats for the hex nut
+nut1_outer_diameter = 13;//[3,3.2,4,5,6,6,7,8,10,11,13,17,19,22,24,27,30,32,36,41,46,50,55]
+nut2_outer_diameter = 27;//[3,3.2,4,5,6,6,7,8,10,11,13,17,19,22,24,27,30,32,36,41,46,50,55]
+nut1_height = 6;
+nut2_height = 12;
+nut_type = "hex";//[hex,textured socket]
 
-// Clearance for printer tollerance for nut
-t=0.2;
+// Tolerance - expand nut internal thread by
+nut_tolerance=0.2;
 
-// Steps
+/* [collet options] */
+cutouts1=3;
+cutout_w1=1.5;
+cutout_depth1=10;
+inner_d1=5.2;
+
+d1=13.5;
+length1=12;
+p1=1.5;
+taper1 = 8/45;
+top_angle1 = 30;
+bottom_angle1 = 30;
+flats = 1/8;
+center_l = 4;
+
+/* [bottom collet options] */
+cutouts2=7;
+cutout_w2=.5;
+cutout_depth2=16;
+inner_d2=2;
+d2=20;
+length2=20;
+p2=2.5;
+taper2 = 1/3;
+top_angle2 = 45;
+bottom_angle2 = 30;
+
 $fn=48;
-
-
-
-inner_d=5.4;
-top_d=9.7;
-bottom_d=13;
-length=11.75;
-center_l=2;
-angle=45;
-p=0;
-
-
-p=(p?p:iso_pitch_coarse(m));
 epsilon=0.01;
 
+profile1     = thread_profile(p=p1, taper=taper1, bottom_angle=bottom_angle1, top_angle=top_angle1,
+    inner_flat=0, outer_flat=flats);
+nut1_profile = thread_profile(p=p1, taper=taper1, bottom_angle=bottom_angle1, top_angle=top_angle1,
+    inner_flat=flats, outer_flat=0);
+profile2     = thread_profile(p=p2, taper=taper2, bottom_angle=bottom_angle2, top_angle=top_angle2,
+    inner_flat=0, outer_flat=flats);
+nut2_profile = thread_profile(p=p2, taper=taper2, bottom_angle=bottom_angle2, top_angle=top_angle2,
+    inner_flat=flats, outer_flat=0);
 
-//collet(top_d=top_d, bottom_d=bottom_d,l=length,p=3,leadin=2,leadout=2,cutouts=3);
-taper = -(top_d - bottom_d)/length/2;
-function r(height) = bottom_d/2 - height*taper;
-function ri(height) = r(height+inner_flat) - inner_radius_inset;
+translate([20,20,0])
+  single_collet();
 
-echo(taper);
-collet(bottom_d, length, p=p, taper=taper, inner_d=inner_d, cutouts=3);
-rotate([0,180,0])
-  cylinder(d=ri(0),h=center_l);
+nut1_offset = floor((length1-nut1_height)/2/p1)*p1;
+nut2_offset = floor((length2-nut2_height)/2/p2)*p2;
+safe_distance = (max(nut1_outer_diameter,nut2_outer_diameter)+max(d1,d2))/2+1;
 
-module collet(m, l, p=0, taper=0, inner_d=0, cutouts=0, cutout_w=1, leadin=0, leadout=0) {
+intersection() {
+  union() {
+    if (type=="double collet") {
+      if (include_collet)
+        double_collet();
+      if (include_nuts) {
+        if (preview) {
+          translate([0,0,length2+center_l+nut1_offset-p1*flats/2])
+            nut1();
+          translate([0,0,length2-nut2_offset+p2*flats/2]) rotate([180,0,0])
+            nut2();
+        }
+        else {
+          translate([safe_distance,0,0])
+            nut1();
+          translate([-safe_distance,0,nut2_height]) rotate([180,0,0])
+            nut2();
+        }
+      }
+    }
+    if (type=="single collet") {
+      if (include_collet)
+        single_collet();
+      if (include_nuts)
+        translate(preview ? [0,0,center_l+nut1_offset-p1*flats/2] : [safe_distance,0,0])
+          nut1();
+    }
+  }
+  
+  if (preview) {
+    translate([-1e3,0,-1e3])
+      cube([2e3,2e3,2e3]);
+  }
+}
+
+module nut1() {
+  eliminate_outer_flat = p1*flats/(tan(top_angle1)+tan(bottom_angle1));
+  nut1_d = (radius(profile1, d1, nut1_offset)+eliminate_outer_flat)*2+nut_tolerance;
+  nut(nut1_profile, nut1_d, nut1_outer_diameter, nut1_height);
+}
+
+module nut2() {
+  eliminate_outer_flat = p2*flats/(tan(top_angle2)+tan(bottom_angle2));
+  nut2_d = (radius(profile2, d2, nut2_offset)+eliminate_outer_flat)*2+nut_tolerance;
+  nut(nut2_profile, nut2_d, nut2_outer_diameter, nut2_height);
+}
+
+module single_collet() {
+  center_r = smallest_radius(profile1, d1, 0);
+  
   difference() {
-    iso_thread(m=m,l=l,p=p,taper=taper);
-  
-    //cylinder_chamfer(m,leadout);
-    //translate([0,0,l]) rotate([0,180,0])
-    //  cylinder_chamfer(m,leadin);
-  
+    union() {
+      cylinder(r=center_r,h=center_l);
+      translate([0,0,center_l])
+        iso_thread(profile1, m=d1, l=length1);
+    }
+    translate([0,0,center_l+length1]) mirror([0,0,1])
+      collet_cutouts(cutouts1, cutout_w1, cutout_depth1);
     translate([0,0,-epsilon])
-      cylinder(d=inner_d,h=l+epsilon*2);
-    
+      cylinder(d=inner_d1,h=center_l+length1+epsilon*2);
+  }
+}
+
+module double_collet() {
+  center_r1 = smallest_radius(profile1, d1, 0);
+  center_r2 = smallest_radius(profile2, d2, 0);
+  
+  difference() {
+    union() {
+      translate([0,0,length2])
+        cylinder(r1=center_r2, r2=center_r1,h=center_l);
+      translate([0,0,length2+center_l])
+        iso_thread(profile1, m=d1, l=length1);
+      translate([0,0,length2]) rotate([180,0,0])
+        iso_thread(profile2, m=d2, l=length2);
+      
+    }
+    translate([0,0,center_l+length1+length2]) mirror([0,0,1])
+      collet_cutouts(cutouts1, cutout_w1, cutout_depth1);
+    collet_cutouts(cutouts2, cutout_w2, cutout_depth2);
+    translate([0,0,-epsilon])
+      cylinder(d=inner_d2,h=length2+center_l/2+epsilon*2);
+    translate([0,0,length2+center_l/2])
+      cylinder(d=inner_d1,h=length1+center_l/2+epsilon*2);
+  }
+  
+}
+
+module collet_cutouts(cutouts,cutout_w,cutout_depth) {
+  translate([0,0,-epsilon])
     if (cutouts>0)
       for (r=[0:360/cutouts:360])
         rotate([0,0,r])
-          translate([-cutout_w/2,0,-epsilon])
-            cube([cutout_w,m/2+1,l+epsilon*2]);
-    }
+          translate([-cutout_w/2,0,0])
+            cube([cutout_w,1e3,cutout_depth+epsilon]);
 }
 
 // Examples
-//union(){iso_bolt(m=20,l=50);translate([40,0,0])iso_nut(m=20);}
-//union(){iso_bolt(m=10,l=30);translate([25,0,0])iso_nut(m=10);}
+//union(){iso_bolt(m=20,l=50);translate([40,0,0])nut(m=20);}
+//union(){iso_bolt(m=10,l=30);translate([25,0,0])nut(m=10);}
 //iso_thread(l=20,cap=0);
 //iso_thread(l=5);
-//iso_nut(m=20);
-//union(){difference(){iso_bolt(m=20,l=50);linear_extrude(height=0.4)scale(1.4)import("/Users/adrian/Documents/3D/DXF/aac.dxf");};translate([40,0,0])iso_nut(m=20);}
+//nut(m=20);
+//union(){difference(){iso_bolt(m=20,l=50);linear_extrude(height=0.4)scale(1.4)import("/Users/adrian/Documents/3D/DXF/aac.dxf");};translate([40,0,0])nut(m=20);}
 
 function iso_hex_size(m)    // Return standard hex nut size for m value
 =lookup(m,[
@@ -133,75 +237,64 @@ function iso_hex_size(m)    // Return standard hex nut size for m value
 [62,6]
   ]);
 
-module hex_head(d=30,w=0)
-{ // Make a hex head centred 0,0 with height h and wrench size/diameter d
-    intersection()
-    {
-        w=(w?w:d/3);
-        r=d/2;
-        m=sqrt(r*r+r*r*tan(30)*tan(30))-r;
-        cylinder(r=r+m,h=w,$fn=6);
-        union()
-        {
-            cylinder(r1=r,r2=r+m,h=m);
-            translate([0,0,m])cylinder(r=r+m,h=w-m*2);
-            translate([0,0,w-m])cylinder(r1=r+m,r2=r,h=m);
-        }
-    }
-}
+/* Returns 5 points (x,y) detailing the repeating pattern of the thread
+   
+           __ p4
+        /        }
+       /         } top_slope_height
+      /          }   (top_angle)
+     / __ p3     }
+    |          }
+    |          } inner_flat
+    |  __ p2   }
+     \          } bottom_slope_height
+      \  __ p1  }   (bottom_angle)
+       |         }
+       |         } outer_flat
+       | __ p0   }
+*/
+function thread_profile(p,taper,bottom_angle,top_angle,inner_flat,outer_flat) = 
+  let(taper_per_turn = taper*p)
+  let(top_plus_bottom_slope_height = p - inner_flat*p - outer_flat*p - taper_per_turn*tan(top_angle))
+  let(inner_radius_inset = top_plus_bottom_slope_height / (tan(bottom_angle)+tan(top_angle)))
+  let(bottom_slope_height = inner_radius_inset*tan(bottom_angle))
+  [
+    [-inner_radius_inset,         0],
+    [-inner_radius_inset,         inner_flat*p],
+    [0,                           inner_flat*p + bottom_slope_height],
+    [0,                           inner_flat*p + bottom_slope_height + outer_flat*p],
+    [-inner_radius_inset-p*taper, p],
+  ];
 
-module iso_thread(  // Generate ISO / UTS thread, centred 0,0,
+function p(profile) =      (profile[len(profile)-1] - profile[0])[1];
+function taper(profile) = -(profile[len(profile)-1] - profile[0])[0]/p(profile);
+function top_angle(profile) =    let(xy = profile[4] - profile[3]) atan2(xy[1], -xy[0]);
+function bottom_angle(profile) = let(xy = profile[2] - profile[1]) atan2(xy[1],  xy[0]);
+function radius(profile, m, height) = m/2 - height*taper(profile);
+function biggest_radius(profile, m, height) = m/2 - (height+profile[3][1])*taper(profile);
+function biggest_radius_underside(profile, m, height) =
+    biggest_radius(profile, m, height+profile[3][1]-profile[2][1]);
+function smallest_radius(profile, m, height) =
+    biggest_radius(profile, m, height+profile[3][1]-profile[1][1])+profile[0][0];
+
+module iso_thread(
+    profile,
     m=20,    // M size, mm, (outer diameter)
     p=0,  // Pitch, mm (0 for standard coarse pitch)
     l=50,   // length
-    taper=.0,
-    bottom_angle=30,
-    top_angle=30,
-    inner_flat=1/4,
-    outer_flat=1/8,
     cap=1,  // capped ends. If uncapped, length is half a turn more top and bottom
 )
 {
-    p=(p?p:iso_pitch_coarse(m));
-    inner_flat = inner_flat*p;
-    outer_flat = outer_flat*p;
-  
-    /*
-  
-            /        }
-           /         } top_slope_height (top_angle)
-          /          }
-         / __ o3     }
-        |          }
-        |          } inner_flat
-        |  __ o2   }
-         \          } bottom_slope_height (bottom_angle)
-          \  __ o1  }     
-           |         }
-           |         } outer_flat
-           |         }
-    
-    */
-    taper_per_turn = taper*p;
-    top_plus_bottom_slope_height = p - inner_flat - outer_flat - taper_per_turn*tan(top_angle);
-    inner_radius_inset = top_plus_bottom_slope_height / (tan(bottom_angle)+tan(top_angle));
-    bottom_slope_height = inner_radius_inset*tan(bottom_angle);
-    top_slope_height = top_plus_bottom_slope_height - bottom_slope_height;
-    o1=inner_flat;
-    o2=inner_flat + bottom_slope_height;
-    o3=inner_flat + bottom_slope_height + outer_flat;
+    p = p(profile);
     
     fn=round($fn?$fn:36); // number of points per turn
     fa=360/fn; // angle of each point
     n=ceil(fn*l/p) + fn*(cap?3:1); // total number of points
-    function r(height) = m/2 - height*taper;
-    function ri(height) = r(height+inner_flat) - inner_radius_inset;
-    function r_at(i) =  r(i*p/fn - (cap?p:0)); //radius at index
-    function ri_at(i) = r_at(i) - inner_radius_inset;
-    p1=[for(i=[0:1:n-1]) [cos(i*fa)*ri_at(i), sin(i*fa)*ri_at(i), i*p/fn]];
-    p2=[for(i=[0:1:n-1]) [cos(i*fa)*ri_at(i), sin(i*fa)*ri_at(i), i*p/fn+o1]];
-    p3=[for(i=[0:1:n-1]) [cos(i*fa)*r_at(i),  sin(i*fa)*r_at(i),  i*p/fn+o2]];
-    p4=[for(i=[0:1:n-1]) [cos(i*fa)*r_at(i),  sin(i*fa)*r_at(i),  i*p/fn+o3]];
+    function r_at(i) =  biggest_radius(profile, m, i*p/fn - (cap?p:0)); //radius at index
+    p1=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[0][0]), i*p/fn+profile[0][1])];
+    p2=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[1][0]), i*p/fn+profile[1][1])];
+    p3=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[2][0]), i*p/fn+profile[2][1])];
+    p4=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[3][0]), i*p/fn+profile[3][1])];
     p5=[[0,0,p/2],[0,0,n*p/fn-p/2]];
     
     t1=[for(i=[0:1:fn-1]) [n*4,i,i+1]];
@@ -233,37 +326,57 @@ module iso_thread(  // Generate ISO / UTS thread, centred 0,0,
               convexity=l/p+5);
         
         if (cap) hull() {
-          cylinder(r1=ri(0),r2=ri(0)+p/tan(bottom_angle),h=p);
+          ri0 = smallest_radius(profile,m,0);
+          riL = smallest_radius(profile,m,l);
+          cylinder(r1=ri0,r2=ri0+p/tan(bottom_angle(profile)),h=p);
           translate([0,0,l]) rotate([0,180,0])
-            cylinder(r1=ri(l),r2=ri(l)+p/tan(top_angle),h=p);
+            cylinder(r1=riL,r2=riL+p/tan(top_angle(profile)),h=p);
         }
     }
 }
 
-module iso_bolt(m=20,w=0,l=50,p=0)
+module bolt(m=20,w=0,l=50,p=0)
 {
     hex_head(d=iso_hex_size(m),w=w);
     iso_thread(m=m,l=l,p=p);
 }
 
-module iso_nut(m=20,w=0,p=0,t=0.2)
+module nut(profile, m, d, w=0)
 {
-    w=(w?w:m/2); // How thick to make the nut
-    p=(p?p:iso_pitch_coarse(m)); // standard pitch
-    h=sqrt(3)/2*p;  // height of thread
-    r=m/2; // radius
-    difference()
-    {
-        hex_head(d=iso_hex_size(m),w=w);
-        translate([0,0,-p/2])iso_thread(m=m,p=p,l=w+p,t=t,cap=0);
-        translate([0,0,-1])cylinder(r1=r+t+1,r2=r-5*h/8+t,h=1+5*h/8*tan(30));
-        translate([0,0,w-5*h/8*tan(30)])cylinder(r2=r+t+1,r1=r-5*h/8+t,h=1+5*h/8*tan(30));
-    }
+  w=(w?w:m/2); // How thick to make the nut
+  p = p(profile);
+  taper=taper(profile);
+  tr = biggest_radius(profile,m,w)+1;
+  br = biggest_radius(profile,m,0)+1;
+  difference()
+  {
+    hex_head(d=d,w=w);
+    translate([0,0,-p])
+    iso_thread(profile, m=m+2*p*taper, l=w+2*p);
+    //translate([0,0,-1])cylinder(r1=r+1,r2=r-5*h/8,h=1+5*h/8*tan(30));
+    //translate([0,0,w-5*h/8*tan(30)])cylinder(r2=r+1,r1=r-5*h/8,h=1+5*h/8*tan(30));
+    translate([0,0,w+tan(bottom_angle(profile))]) mirror([0,0,1])
+      cylinder(r1=tr,r2=0,h=tr*tan(bottom_angle(profile)));
+    translate([0,0,-tan(top_angle(profile))])
+      cylinder(r1=br,r2=0,h=br*tan(top_angle(profile)));
+  }
+  
 }
 
-module cylinder_chamfer(d, h, angle=45) difference() {
-  translate([0,0,-epsilon])
-    cylinder(r=d/2+1, h=h+epsilon);
-  translate([0,0,h+epsilon]) rotate([0,180,0])
-    cylinder (r2=0, r1=d/2+epsilon*tan(angle), h=(d/2+epsilon)*tan(angle));
+module hex_head(d=30,w=0)
+{ // Make a hex head centred 0,0 with height h and wrench size/diameter d
+  rotate([0,0,90])
+    intersection()
+    {
+        w=(w?w:d/3);
+        r=d/2;
+        m=sqrt(r*r+r*r*tan(30)*tan(30))-r;
+        cylinder(r=r+m,h=w,$fn=6);
+        union()
+        {
+            cylinder(r1=r,r2=r+m,h=m);
+            translate([0,0,m])cylinder(r=r+m,h=w-m*2);
+            translate([0,0,w-m])cylinder(r1=r+m,r2=r,h=m);
+        }
+    }
 }
