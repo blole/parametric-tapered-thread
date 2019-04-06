@@ -7,8 +7,9 @@
 
 type = "double collet";//[single collet,double collet]
 include_collet = true;
-include_nuts = true;
-preview = true;
+include_nut1 = true;
+include_nut2 = true;
+printing = false;
 
 /* [nut options] */
 //Distance between flats for the hex nut
@@ -33,7 +34,7 @@ p1=1.5;
 taper1 = 8/45;
 top_angle1 = 30;
 bottom_angle1 = 30;
-flats = 1/8;
+flats = .2;
 center_l = 4;
 
 /* [bottom collet options] */
@@ -51,67 +52,72 @@ bottom_angle2 = 30;
 $fn=48;
 epsilon=0.01;
 
-profile1     = thread_profile(p=p1, taper=taper1, bottom_angle=bottom_angle1, top_angle=top_angle1,
-    inner_flat=0, outer_flat=flats);
-nut1_profile = thread_profile(p=p1, taper=taper1, bottom_angle=bottom_angle1, top_angle=top_angle1,
-    inner_flat=flats, outer_flat=0);
-profile2     = thread_profile(p=p2, taper=taper2, bottom_angle=bottom_angle2, top_angle=top_angle2,
-    inner_flat=0, outer_flat=flats);
-nut2_profile = thread_profile(p=p2, taper=taper2, bottom_angle=bottom_angle2, top_angle=top_angle2,
-    inner_flat=flats, outer_flat=0);
-
-translate([20,20,0])
-  single_collet();
+profile1     = thread_profile(p1, taper1, bottom_angle1, top_angle1, inner_flat=0, outer_flat=flats);
+nut1_profile = thread_profile(p1, taper1, bottom_angle1, top_angle1, inner_flat=flats, outer_flat=0);
+profile2     = thread_profile(p2, taper2, bottom_angle2, top_angle2, inner_flat=0, outer_flat=flats);
+nut2_profile = thread_profile(p2, taper2, bottom_angle2, top_angle2, inner_flat=flats, outer_flat=0);
 
 nut1_offset = floor((length1-nut1_height)/2/p1)*p1;
 nut2_offset = floor((length2-nut2_height)/2/p2)*p2;
-safe_distance = (max(nut1_outer_diameter,nut2_outer_diameter)+max(d1,d2))/2+1;
+nut1_safe_distance = (nut1_outer_diameter+max(d1,d2))/2+1;
+nut2_safe_distance = (nut2_outer_diameter+max(d1,d2))/2+1;
 
 intersection() {
   union() {
     if (type=="double collet") {
-      if (include_collet)
+      if (printing) {
+        if (include_collet)
+          double_collet();
+        if (include_nut1)
+          translate([nut1_safe_distance,0,0])
+            nut1();
+        if (include_nut2)
+          translate([-nut2_safe_distance,0,0])
+            nut2();
+      }
+      else {
         double_collet();
-      if (include_nuts) {
-        if (preview) {
-          translate([0,0,length2+center_l+nut1_offset-p1*flats/2])
-            nut1();
-          translate([0,0,length2-nut2_offset+p2*flats/2]) rotate([180,0,0])
-            nut2();
-        }
-        else {
-          translate([safe_distance,0,0])
-            nut1();
-          translate([-safe_distance,0,nut2_height]) rotate([180,0,0])
-            nut2();
-        }
+        translate([0,0,length2+center_l+nut1_offset-flats/2])
+          nut1();
+        translate([0,0,length2-nut2_height-nut2_offset+flats/2])
+          nut2();
       }
     }
+    
     if (type=="single collet") {
-      if (include_collet)
+      if (printing) {
+        if (include_collet)
+          single_collet();
+        if (include_nut1)
+          translate([nut1_safe_distance,0,0])
+            nut1();
+      }
+      else {
         single_collet();
-      if (include_nuts)
-        translate(preview ? [0,0,center_l+nut1_offset-p1*flats/2] : [safe_distance,0,0])
+        translate([0,0,center_l+nut1_offset-flats/2])
           nut1();
+      }
     }
   }
   
-  if (preview) {
+  if (!printing) {
     translate([-1e3,0,-1e3])
       cube([2e3,2e3,2e3]);
   }
 }
 
 module nut1() {
-  eliminate_outer_flat = p1*flats/(tan(top_angle1)+tan(bottom_angle1));
+  eliminate_outer_flat = flats/(tan(top_angle1)+tan(bottom_angle1));
   nut1_d = (radius(profile1, d1, nut1_offset)+eliminate_outer_flat)*2+nut_tolerance;
   nut(nut1_profile, nut1_d, nut1_outer_diameter, nut1_height);
 }
 
 module nut2() {
-  eliminate_outer_flat = p2*flats/(tan(top_angle2)+tan(bottom_angle2));
-  nut2_d = (radius(profile2, d2, nut2_offset)+eliminate_outer_flat)*2+nut_tolerance;
-  nut(nut2_profile, nut2_d, nut2_outer_diameter, nut2_height);
+  translate([0,0,nut2_height]) rotate([180,0,0]) {
+    eliminate_outer_flat = flats/(tan(top_angle2)+tan(bottom_angle2));
+    nut2_d = (radius(profile2, d2, nut2_offset)+eliminate_outer_flat)*2+nut_tolerance;
+    nut(nut2_profile, nut2_d, nut2_outer_diameter, nut2_height);
+  }
 }
 
 module single_collet() {
@@ -147,10 +153,14 @@ module double_collet() {
     translate([0,0,center_l+length1+length2]) mirror([0,0,1])
       collet_cutouts(cutouts1, cutout_w1, cutout_depth1);
     collet_cutouts(cutouts2, cutout_w2, cutout_depth2);
+    
+    inner_diff = abs(inner_d1-inner_d2);
     translate([0,0,-epsilon])
-      cylinder(d=inner_d2,h=length2+center_l/2+epsilon*2);
-    translate([0,0,length2+center_l/2])
-      cylinder(d=inner_d1,h=length1+center_l/2+epsilon*2);
+      cylinder(d=inner_d2,h=length2-inner_diff/2+center_l/2+epsilon);
+    translate([0,0,length2-inner_diff/2+center_l/2-epsilon])
+      cylinder(d1=inner_d2,d2=inner_d1,h=inner_diff+epsilon*2);
+    translate([0,0,length2+inner_diff/2+center_l/2])
+      cylinder(d=inner_d1,h=length1-inner_diff/2+center_l/2+epsilon*2);
   }
   
 }
@@ -255,14 +265,14 @@ function iso_hex_size(m)    // Return standard hex nut size for m value
 */
 function thread_profile(p,taper,bottom_angle,top_angle,inner_flat,outer_flat) = 
   let(taper_per_turn = taper*p)
-  let(top_plus_bottom_slope_height = p - inner_flat*p - outer_flat*p - taper_per_turn*tan(top_angle))
+  let(top_plus_bottom_slope_height = p - inner_flat - outer_flat - taper_per_turn*tan(top_angle))
   let(inner_radius_inset = top_plus_bottom_slope_height / (tan(bottom_angle)+tan(top_angle)))
   let(bottom_slope_height = inner_radius_inset*tan(bottom_angle))
   [
     [-inner_radius_inset,         0],
-    [-inner_radius_inset,         inner_flat*p],
-    [0,                           inner_flat*p + bottom_slope_height],
-    [0,                           inner_flat*p + bottom_slope_height + outer_flat*p],
+    [-inner_radius_inset,         inner_flat],
+    [0,                           inner_flat + bottom_slope_height],
+    [0,                           inner_flat + bottom_slope_height + outer_flat],
     [-inner_radius_inset-p*taper, p],
   ];
 
