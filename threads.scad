@@ -6,29 +6,26 @@
 
 /* [Common] */
 //ready for printing or debug section view
-printing = "yes";//[yes,no]
 type = "double collet";//[single collet,double collet]
-include_collet = "yes";//[yes,no]
-include_nut1 = "yes";//[yes,no]
-include_nut2 = "yes";//[yes,no]
+view = "all parts";//[all parts, section view, only collet, only nut1, only nut2]
 //mm
 center_length = 4;
 //mm - height of the protruding flat part of threads
 thread_edge_flat_height=0.2;
-//mm - expand nut internal thread radius
+//mm - expand nut internal thread radius, not necessary for tapered threads
 nut_tolerance=0.2;
 
 /* [single or top collet] */
+//mm
+collet1_inner_diameter = 5.2;
+//mm
+collet1_outer_diameter = 13.5;
 //mm
 collet1_length = 12;
 //mm
 collet1_pitch = 1.5;
 //mm - shrink thread radius by this amount for every mm
 collet1_taper = 0.178;
-//mm
-collet1_inner_diameter = 5.2;
-//mm
-collet1_outer_diameter = 13.5;
 //count
 collet1_cutouts = 3;
 //mm
@@ -45,17 +42,17 @@ collet1_nut_outer_diameter = 17;//[3,3.2,4,5,6,6,7,8,10,11,13,17,19,22,24,27,30,
 collet1_nut_height = 10;
 
 
-/* [bottom Collet] */
+/* [bottom collet] */
+//mm
+collet2_inner_diameter = 5.2;
+//mm
+collet2_outer_diameter = 13.5;
 //mm
 collet2_length = 12;
 //mm
 collet2_pitch = 1.5;
 //mm - shrink thread radius by this amount for every mm
 collet2_taper = 0.178;
-//mm
-collet2_inner_diameter = 5.2;
-//mm
-collet2_outer_diameter = 13.5;
 //count
 collet2_cutouts = 3;
 //mm
@@ -72,12 +69,9 @@ collet2_nut_outer_diameter = 17;//[3,3.2,4,5,6,6,7,8,10,11,13,17,19,22,24,27,30,
 collet2_nut_height = 10;
 
 
-//
-//
-//
-
-$fn=48;
-epsilon=0.01;
+//hide from customizer
+$fn     = 0+ 48;
+epsilon = 0+ 0.01 ;
 
 profile1     = thread_profile(collet1_pitch, collet1_taper, collet1_bottom_angle, collet1_top_angle, inner_flat=0, outer_flat=thread_edge_flat_height);
 nut1_profile = thread_profile(collet1_pitch, collet1_taper, collet1_bottom_angle, collet1_top_angle, inner_flat=thread_edge_flat_height, outer_flat=0);
@@ -92,18 +86,22 @@ nut2_safe_distance = (collet2_nut_outer_diameter+max(collet1_outer_diameter,coll
 intersection() {
   union() {
     if (type=="double collet") {
-      if (printing=="yes") {
-        if (include_collet=="yes")
-          double_collet();
-        if (include_nut1=="yes")
-          translate([nut1_safe_distance,0,collet1_nut_height]) rotate([180,0,0])
-            nut1();
-        if (include_nut2=="yes")
-          translate([-nut2_safe_distance,0,collet2_nut_height]) rotate([180,0,0])
-            nut2();
-      }
-      else {
+      if (view=="section view" || view=="all parts" || view=="only collet")
         double_collet();
+      if (view=="only nut1")
+        translate([0,0,collet1_nut_height]) rotate([180,0,0])
+          nut1();
+      if (view=="only nut2")
+        translate([0,0,collet2_nut_height]) rotate([180,0,0])
+          nut2();
+      
+      if (view=="all parts") {
+        translate([nut1_safe_distance,0,collet1_nut_height]) rotate([180,0,0])
+          nut1();
+        translate([-nut2_safe_distance,0,collet2_nut_height]) rotate([180,0,0])
+          nut2();
+      }
+      if (view=="section view") {
         translate([0,0,collet2_length+center_length+nut1_offset-thread_edge_flat_height/2])
           nut1();
         translate([0,0,collet2_length-collet2_nut_height-nut2_offset+thread_edge_flat_height/2])
@@ -112,22 +110,22 @@ intersection() {
     }
     
     if (type=="single collet") {
-      if (printing=="yes") {
-        if (include_collet=="yes")
-          single_collet();
-        if (include_nut1=="yes")
-          translate([nut1_safe_distance,0,collet1_nut_height]) rotate([180,0,0])
-            nut1();
-      }
-      else {
+      view = view=="only nut2" ? "all parts" : view;
+      if (view=="section view" || view=="all parts" || view=="only collet")
         single_collet();
+      if (view=="only nut1")
+        translate([0,0,collet1_nut_height]) rotate([180,0,0])
+          nut1();
+      if (view=="all parts")
+        translate([nut1_safe_distance,0,collet1_nut_height]) rotate([180,0,0])
+          nut1();
+      if (view=="section view")
         translate([0,0,center_length+nut1_offset-thread_edge_flat_height/2])
           nut1();
-      }
     }
   }
   
-  if (printing!="yes") {
+  if (view=="section view") {
     section_r = max(collet1_nut_outer_diameter, collet1_outer_diameter,
                     collet2_nut_outer_diameter, collet2_outer_diameter)/2;
     translate([-section_r,0,-1])
