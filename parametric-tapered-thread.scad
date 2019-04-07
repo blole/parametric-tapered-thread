@@ -1,5 +1,6 @@
 // Parametric tapered thread coupling by blole
 // https://www.thingiverse.com/thing:3544909
+// https://github.com/blole/parametric-tapered-thread
 //   forked from
 // ISO screw thread modules by RevK @TheRealRevK
 // https://www.thingiverse.com/thing:2158656
