@@ -20,7 +20,7 @@ nut_tolerance=0.2;
 //mm
 collet1_inner_diameter = 5.2;
 //mm
-collet1_outer_diameter = 13.5;
+collet1_outer_diameter = 14;
 //mm
 collet1_length = 12;
 //mm
@@ -47,7 +47,7 @@ collet1_nut_height = 10;
 //mm
 collet2_inner_diameter = 5.2;
 //mm
-collet2_outer_diameter = 13.5;
+collet2_outer_diameter = 14;
 //mm
 collet2_length = 12;
 //mm
