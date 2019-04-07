@@ -34,9 +34,9 @@ collet1_cutout_widths = 1.5;
 //mm
 collet1_cutout_depth = 12;
 //degrees
-collet1_top_angle = 45;//[1:90]
+collet1_top_angle = 45;
 //degrees
-collet1_bottom_angle = 45;//[1:90]
+collet1_bottom_angle = 45;
 //mm - distance between flats for the hex nut
 collet1_nut_outer_diameter = 17;//[3,3.2,4,5,6,6,7,8,10,11,13,17,19,22,24,27,30,32,36,41,46,50,55]
 //mm
@@ -61,9 +61,9 @@ collet2_cutout_widths = 1.5;
 //mm
 collet2_cutout_depth = 12;
 //degrees
-collet2_top_angle = 45;//[1:90]
+collet2_top_angle = 45;
 //degrees
-collet2_bottom_angle = 45;//[1:90]
+collet2_bottom_angle = 45;
 //mm - distance between flats for the hex nut
 collet2_nut_outer_diameter = 17;//[3,3.2,4,5,6,6,7,8,10,11,13,17,19,22,24,27,30,32,36,41,46,50,55]
 //mm
@@ -302,9 +302,17 @@ module thread(
     if (cap) hull() {
       ri0 = smallest_radius(profile,m,0);
       riL = smallest_radius(profile,m,l);
-      cylinder(r1=ri0,r2=ri0+p/tan(bottom_angle(profile)),h=p);
-      translate([0,0,l]) rotate([0,180,0])
-        cylinder(r1=riL,r2=riL+p/tan(top_angle(profile)),h=p);
+      ro0 = biggest_radius(profile,m,0);
+      roL = biggest_radius(profile,m,l);
+      if (bottom_angle(profile) <= 0)
+        cylinder(r=ro0+1,h=epsilon);
+      else
+        cylinder(r1=ri0,r2=ro0+1,h=(ro0-ri0+1)*tan(bottom_angle(profile)));
+      translate([0,0,l]) mirror([0,0,1])
+        if (top_angle(profile) <= 0)
+          cylinder(r=roL+1,h=epsilon);
+        else
+          cylinder(r1=riL,r2=roL+1,h=(roL-riL+1)*tan(top_angle(profile)));
     }
   }
 }
