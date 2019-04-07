@@ -1,7 +1,7 @@
 // Parametric tapered thread coupling by blole
 // https://www.thingiverse.com/thing:3544909
 // https://github.com/blole/parametric-tapered-thread
-//   forked from
+//   based on
 // ISO screw thread modules by RevK @TheRealRevK
 // https://www.thingiverse.com/thing:2158656
 
@@ -14,7 +14,7 @@ center_length = 4;
 //mm - height of the protruding flat part of threads
 thread_edge_flat_height=0.2;
 //mm - expand nut internal thread radius, not necessary for tapered threads
-nut_tolerance=0.2;
+nut_tolerance=0.1;
 
 /* [single or top collet] */
 //mm
@@ -83,18 +83,18 @@ nut1_offset = ceil((collet1_length-collet1_nut_height)/2/collet1_pitch)*collet1_
 nut2_offset = ceil((collet2_length-collet2_nut_height)/2/collet2_pitch)*collet2_pitch;
 nut1_safe_distance = (collet1_nut_outer_diameter+max(collet1_outer_diameter,collet2_outer_diameter))/2+1;
 nut2_safe_distance = (collet2_nut_outer_diameter+max(collet1_outer_diameter,collet2_outer_diameter))/2+1;
+nut1_extra_radius = thread_edge_flat_height/(tan(collet1_top_angle)+tan(collet1_bottom_angle));
+nut2_extra_radius = thread_edge_flat_height/(tan(collet2_top_angle)+tan(collet2_bottom_angle));
+nut1_section_view_offset = nut_tolerance*tan((collet1_bottom_angle-collet1_top_angle)/2)-nut1_extra_radius*tan(collet1_top_angle);
+nut2_section_view_offset = nut_tolerance*tan((collet2_bottom_angle-collet2_top_angle)/2)+nut2_extra_radius*tan(collet2_top_angle);
 
 intersection() {
   union() {
+    view = (type=="single collet"&&view=="only nut2") ? "all parts" : view;
+    
     if (type=="double collet") {
       if (view=="section view" || view=="all parts" || view=="only collet")
         double_collet();
-      if (view=="only nut1")
-        translate([0,0,collet1_nut_height]) rotate([180,0,0])
-          nut1();
-      if (view=="only nut2")
-        translate([0,0,collet2_nut_height]) rotate([180,0,0])
-          nut2();
       
       if (view=="all parts") {
         translate([nut1_safe_distance,0,collet1_nut_height]) rotate([180,0,0])
@@ -103,27 +103,30 @@ intersection() {
           nut2();
       }
       if (view=="section view") {
-        translate([0,0,collet2_length+center_length+nut1_offset-thread_edge_flat_height/2])
+        translate([0,0,collet2_length+center_length+nut1_offset+nut1_section_view_offset])
           nut1();
-        translate([0,0,collet2_length-collet2_nut_height-nut2_offset+thread_edge_flat_height/2])
+        translate([0,0,collet2_length-collet2_nut_height-nut2_offset+nut2_section_view_offset])
           nut2();
       }
     }
     
     if (type=="single collet") {
-      view = view=="only nut2" ? "all parts" : view;
       if (view=="section view" || view=="all parts" || view=="only collet")
         single_collet();
-      if (view=="only nut1")
-        translate([0,0,collet1_nut_height]) rotate([180,0,0])
-          nut1();
       if (view=="all parts")
         translate([nut1_safe_distance,0,collet1_nut_height]) rotate([180,0,0])
           nut1();
       if (view=="section view")
-        translate([0,0,center_length+nut1_offset-thread_edge_flat_height/2])
+        translate([0,0,center_length+nut1_offset+nut1_section_view_offset])
           nut1();
     }
+    
+    if (view=="only nut1")
+      translate([0,0,collet1_nut_height]) rotate([180,0,0])
+        nut1();
+    if (view=="only nut2")
+      translate([0,0,collet2_nut_height]) rotate([180,0,0])
+        nut2();
   }
   
   if (view=="section view") {
@@ -135,16 +138,14 @@ intersection() {
 }
 
 module nut1() {
-  eliminate_outer_flat = thread_edge_flat_height/(tan(collet1_top_angle)+tan(collet1_bottom_angle));
-  nut1_d = (radius(profile1, collet1_outer_diameter, nut1_offset)+eliminate_outer_flat)*2+nut_tolerance;
-  nut(nut1_profile, nut1_d, collet1_nut_outer_diameter, collet1_nut_height);
+  nut1_r = radius(profile1, collet1_outer_diameter, nut1_offset) + nut1_extra_radius + nut_tolerance;
+  nut(nut1_profile, 2*nut1_r, collet1_nut_outer_diameter, collet1_nut_height);
 }
 
 module nut2() {
   translate([0,0,collet2_nut_height]) rotate([180,0,0]) {
-    eliminate_outer_flat = thread_edge_flat_height/(tan(collet2_top_angle)+tan(collet2_bottom_angle));
-    nut2_d = (radius(profile2, collet2_outer_diameter, nut2_offset)+eliminate_outer_flat)*2+nut_tolerance;
-    nut(nut2_profile, nut2_d, collet2_nut_outer_diameter, collet2_nut_height);
+    nut2_r = radius(profile2, collet2_outer_diameter, nut2_offset) + nut2_extra_radius + nut_tolerance;
+    nut(nut2_profile, 2*nut2_r, collet2_nut_outer_diameter, collet2_nut_height);
   }
 }
 
