@@ -6,15 +6,20 @@
 // https://www.thingiverse.com/thing:2158656
 
 /* [Common] */
-//ready for printing or debug section view
 type = "double collet";//[single collet,double collet]
+//ready for printing or debug section view
 view = "all parts";//[all parts, section view, only collet, only nut1, only nut2]
 //mm
 center_length = 4;
+center_decoration = "none";//[none,hex,sphere]
+//mm - only used for hex and sphere
+center_decoration_outer_diameter = 13;
+//mm - only used for hex
+center_decoration_height = 8;
 //mm - height of the protruding flat part of threads
 thread_edge_flat_height=0.2;
 //mm - expand nut internal thread radius, not necessary for tapered threads
-nut_tolerance=0.1;
+nut_tolerance=0.2;
 
 /* [single or top collet] */
 //mm
@@ -81,12 +86,12 @@ nut2_profile = thread_profile(collet2_pitch, collet2_taper, collet2_top_angle, c
 
 nut1_offset = ceil((collet1_length-collet1_nut_height)/2/collet1_pitch)*collet1_pitch;
 nut2_offset = ceil((collet2_length-collet2_nut_height)/2/collet2_pitch)*collet2_pitch;
-nut1_safe_distance = (collet1_nut_outer_diameter+max(collet1_outer_diameter,collet2_outer_diameter))/2+1;
-nut2_safe_distance = (collet2_nut_outer_diameter+max(collet1_outer_diameter,collet2_outer_diameter))/2+1;
+nut1_safe_distance = (collet1_nut_outer_diameter+max(collet1_outer_diameter,collet2_outer_diameter,center_decoration_outer_diameter))/2+1;
+nut2_safe_distance = (collet2_nut_outer_diameter+max(collet1_outer_diameter,collet2_outer_diameter,center_decoration_outer_diameter))/2+1;
 nut1_extra_radius = thread_edge_flat_height/(tan(collet1_top_angle)+tan(collet1_bottom_angle));
 nut2_extra_radius = thread_edge_flat_height/(tan(collet2_top_angle)+tan(collet2_bottom_angle));
 nut1_section_view_offset = nut_tolerance*tan((collet1_bottom_angle-collet1_top_angle)/2)-nut1_extra_radius*tan(collet1_top_angle);
-nut2_section_view_offset = nut_tolerance*tan((collet2_bottom_angle-collet2_top_angle)/2)+nut2_extra_radius*tan(collet2_top_angle);
+nut2_section_view_offset = nut_tolerance*tan((collet2_bottom_angle-collet2_top_angle)/2)+nut2_extra_radius*tan(collet2_bottom_angle);
 
 intersection() {
   union() {
@@ -131,7 +136,8 @@ intersection() {
   
   if (view=="section view") {
     section_r = max(collet1_nut_outer_diameter, collet1_outer_diameter,
-                    collet2_nut_outer_diameter, collet2_outer_diameter)/2;
+                    collet2_nut_outer_diameter, collet2_outer_diameter,
+                    center_decoration_outer_diameter);
     translate([-section_r,0,-1])
       cube([2*section_r,section_r,collet1_length+center_length+collet2_length+2]);
   }
@@ -150,11 +156,9 @@ module nut2() {
 }
 
 module single_collet() {
-  center_r = smallest_radius(profile1, collet1_outer_diameter, 0);
-  
   difference() {
     union() {
-      cylinder(r=center_r,h=center_length);
+      center();
       translate([0,0,center_length])
         thread(profile1, m=collet1_outer_diameter, l=collet1_length);
     }
@@ -166,13 +170,10 @@ module single_collet() {
 }
 
 module double_collet() {
-  center_r1 = smallest_radius(profile1, collet1_outer_diameter, 0);
-  center_r2 = smallest_radius(profile2, collet2_outer_diameter, 0);
-  
   difference() {
     union() {
       translate([0,0,collet2_length])
-        cylinder(r1=center_r2, r2=center_r1,h=center_length);
+        center();
       translate([0,0,collet2_length+center_length])
         thread(profile1, m=collet1_outer_diameter, l=collet1_length);
       translate([0,0,collet2_length]) rotate([180,0,0])
@@ -181,7 +182,8 @@ module double_collet() {
     }
     translate([0,0,center_length+collet1_length+collet2_length]) mirror([0,0,1])
       collet_cutouts(collet1_cutouts, collet1_cutout_widths, collet1_cutout_depth);
-    collet_cutouts(collet2_cutouts, collet2_cutout_widths, collet2_cutout_depth);
+    mirror([0,1,0])
+      collet_cutouts(collet2_cutouts, collet2_cutout_widths, collet2_cutout_depth);
     
     inner_diff = abs(collet1_inner_diameter-collet2_inner_diameter);
     translate([0,0,-epsilon])
@@ -191,7 +193,37 @@ module double_collet() {
     translate([0,0,collet2_length+inner_diff/2+center_length/2])
       cylinder(d=collet1_inner_diameter,h=collet1_length-inner_diff/2+center_length/2+epsilon*2);
   }
+}
+
+module center() {
+  //cylinder(r1=r1, r2=r2, h=center_length);
+  r2 = smallest_radius(profile1, collet1_outer_diameter, 0);
+  r1 = type=="single collet" ? r2 : smallest_radius(profile2, collet2_outer_diameter, 0);
   
+  if (center_decoration=="none") {
+    cylinder(r1=r1, r2=r2, h=center_length);
+  }
+  if (center_decoration=="hex") {
+    cylinder(r1=r1, r2=r2, h=center_length);
+    offset = type=="double collet" ? (center_length-center_decoration_height)/2 : 0;
+    translate([0,0,offset])
+      hex_head(d=center_decoration_outer_diameter,w=center_decoration_height);
+  }
+  if (center_decoration=="sphere") {
+    single_max = sqrt(pow(center_decoration_outer_diameter/2,2)-pow(collet1_inner_diameter/2+1,2));
+    sphere_center_height = type=="single collet" ? min(center_length/2,single_max) : center_length/2;
+    if (type=="single collet")
+      translate([0,0,sphere_center_height])
+        cylinder(r1=r1, r2=r2, h=center_length-sphere_center_height);
+    else
+      cylinder(r1=r1, r2=r2, h=center_length);
+    
+    intersection() {
+      translate([0,0,sphere_center_height])
+        sphere(d=center_decoration_outer_diameter);
+      cylinder(d=center_decoration_outer_diameter+epsilon, h=center_length);
+    }
+  }
 }
 
 module collet_cutouts(cutouts,cutout_w,cutout_depth) {
