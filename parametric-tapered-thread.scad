@@ -288,15 +288,15 @@ module thread(
     m=20,    // M size, mm, (outer diameter)
     p=0,  // Pitch, mm (0 for standard coarse pitch)
     l=50,   // length
-    cap=1,  // capped ends. If uncapped, length is half a turn more top and bottom
+    cap=3,  // capped ends
 )
 {
   p = p(profile);
   
   fn=round($fn?$fn:36); // number of points per turn
   fa=360/fn; // angle of each point
-  n=ceil(fn*l/p) + fn*(cap?3:1); // total number of points
-  function r_at(i) =  biggest_radius(profile, m, i*p/fn - (cap?p:0)); //radius at index
+  n=ceil(fn*l/p) + fn*3; // total number of points
+  function r_at(i) =  biggest_radius(profile, m, i*p/fn - p); //radius at index
   p1=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[0][0]), i*p/fn+profile[0][1])];
   p2=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[1][0]), i*p/fn+profile[1][1])];
   p3=[for(i=[0:1:n-1]) concat([cos(i*fa),sin(i*fa)]*(r_at(i)+profile[2][0]), i*p/fn+profile[2][1])];
@@ -326,25 +326,29 @@ module thread(
  
   intersection()
   {
-    translate([0,0,-p/2-(cap?p:0)])
+    translate([0,0,-p/2-p])
       polyhedron(points=concat(p1,p2,p3,p4,p5),
           faces=concat(t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12),
           convexity=l/p+5);
     
-    if (cap) hull() {
-      ri0 = smallest_radius(profile,m,0);
-      riL = smallest_radius(profile,m,l);
-      ro0 = biggest_radius(profile,m,0);
-      roL = biggest_radius(profile,m,l);
-      if (bottom_angle(profile) <= 0)
-        cylinder(r=ro0+1,h=epsilon);
-      else
-        cylinder(r1=ri0,r2=ro0+1,h=(ro0-ri0+1)*tan(bottom_angle(profile)));
-      translate([0,0,l]) mirror([0,0,1])
-        if (top_angle(profile) <= 0)
-          cylinder(r=roL+1,h=epsilon);
+    intersection() {
+      if (cap==1 || cap==3) {
+        ri0 = smallest_radius(profile,m,0);
+        ro0 = biggest_radius(profile,m,0);
+        if (bottom_angle(profile) > 0)
+          cylinder(r1=ri0,r2=ri0+l/tan(bottom_angle(profile)),h=l);
         else
-          cylinder(r1=riL,r2=roL+1,h=(roL-riL+1)*tan(top_angle(profile)));
+          ;//cylinder(r=ro0+1,h=epsilon);
+      }
+      if (cap==2 || cap==3) {
+        riL = smallest_radius(profile,m,l);
+        roL = biggest_radius(profile,m,l);
+        translate([0,0,l]) mirror([0,0,1])
+          if (top_angle(profile) > 0)
+            cylinder(r1=riL,r2=riL+l/tan(top_angle(profile)),h=l);
+          else
+            ;//cylinder(r=roL+1,h=epsilon);
+      }
     }
   }
 }
