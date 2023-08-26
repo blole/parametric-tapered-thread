@@ -22,6 +22,7 @@ thread_edge_flat_height=0.2;
 nut_tolerance=0.2;
 
 /* [single or top collet] */
+collet_or_nut_cutout1 = "collet";//[collet, nut]
 //mm
 collet1_inner_diameter = 5.2;
 //mm
@@ -49,6 +50,7 @@ collet1_nut_height = 10;
 
 
 /* [bottom collet] */
+collet_or_nut_cutout2 = "nut";//[collet, nut]
 //mm
 collet2_inner_diameter = 5.2;
 //mm
@@ -64,7 +66,7 @@ collet2_cutouts = 3;
 //mm
 collet2_cutout_widths = 1.5;
 //mm
-collet2_cutout_depth = 12;
+collet2_cutout_depth = 8;
 //degrees
 collet2_top_angle = 45;
 //degrees
@@ -144,15 +146,15 @@ intersection() {
 }
 
 module nut1() {
-  nut1_r = radius(profile1, collet1_outer_diameter, nut1_offset) + nut1_extra_radius + nut_tolerance;
-  nut(nut1_profile, 2*nut1_r, collet1_nut_outer_diameter, collet1_nut_height);
+  translate([0,0,collet1_nut_height]) rotate([180,0,0]) {
+    nut1_r = radius(profile1, collet1_outer_diameter, nut1_offset) + nut1_extra_radius + nut_tolerance;
+    nut(nut1_profile, 2*nut1_r, collet1_nut_outer_diameter, collet1_nut_height, collet_or_nut_cutout1=="collet"?false:[collet1_cutouts, collet1_cutout_widths, collet1_cutout_depth]);
+  }
 }
 
 module nut2() {
-  translate([0,0,collet2_nut_height]) rotate([180,0,0]) {
-    nut2_r = radius(profile2, collet2_outer_diameter, nut2_offset) + nut2_extra_radius + nut_tolerance;
-    nut(nut2_profile, 2*nut2_r, collet2_nut_outer_diameter, collet2_nut_height);
-  }
+  nut2_r = radius(profile2, collet2_outer_diameter, nut2_offset) + nut2_extra_radius + nut_tolerance;
+  nut(nut2_profile, 2*nut2_r, collet2_nut_outer_diameter, collet2_nut_height, collet_or_nut_cutout2=="collet"?false:[collet2_cutouts, collet2_cutout_widths, collet2_cutout_depth]);
 }
 
 module single_collet() {
@@ -162,8 +164,10 @@ module single_collet() {
       translate([0,0,center_length])
         thread(profile1, m=collet1_outer_diameter, l=collet1_length);
     }
-    translate([0,0,center_length+collet1_length]) mirror([0,0,1])
-      collet_cutouts(collet1_cutouts, collet1_cutout_widths, collet1_cutout_depth);
+    if (collet_or_nut_cutout1=="collet") {
+      translate([0,0,center_length+collet1_length]) mirror([0,0,1])
+        collet_cutouts(collet1_cutouts, collet1_cutout_widths, collet1_cutout_depth);
+    }
     translate([0,0,-epsilon])
       cylinder(d=collet1_inner_diameter,h=center_length+collet1_length+epsilon*2);
   }
@@ -180,11 +184,14 @@ module double_collet() {
         thread(profile2, m=collet2_outer_diameter, l=collet2_length);
       
     }
-    translate([0,0,center_length+collet1_length+collet2_length]) mirror([0,0,1])
-      collet_cutouts(collet1_cutouts, collet1_cutout_widths, collet1_cutout_depth);
-    mirror([0,1,0])
-      collet_cutouts(collet2_cutouts, collet2_cutout_widths, collet2_cutout_depth);
-    
+    if (collet_or_nut_cutout1=="collet") {
+      translate([0,0,center_length+collet1_length+collet2_length]) mirror([0,0,1])
+        collet_cutouts(collet1_cutouts, collet1_cutout_widths, collet1_cutout_depth);
+    }
+    if (collet_or_nut_cutout2=="collet") {
+      mirror([0,1,0])
+        collet_cutouts(collet2_cutouts, collet2_cutout_widths, collet2_cutout_depth);
+    }
     inner_diff = abs(collet1_inner_diameter-collet2_inner_diameter);
     translate([0,0,-epsilon])
       cylinder(d=collet2_inner_diameter,h=collet2_length-inner_diff/2+center_length/2+epsilon);
@@ -353,7 +360,7 @@ module thread(
   }
 }
 
-module nut(profile, m, d, w=0)
+module nut(profile, m, d, w=0, cutout_details=false)
 {
   w=(w?w:m/2); // How thick to make the nut
   p = p(profile);
@@ -371,6 +378,9 @@ module nut(profile, m, d, w=0)
       cylinder(r1=tr,r2=0,h=tr*tan(bottom_angle(profile)));
     translate([0,0,-tan(top_angle(profile))])
       cylinder(r1=br,r2=0,h=br*tan(top_angle(profile)));
+    if (cutout_details!=false) {
+      translate([0,0,w]) mirror([0,0,1]) collet_cutouts(cutout_details[0], cutout_details[1], cutout_details[2]);
+    }
   }
 }
 
